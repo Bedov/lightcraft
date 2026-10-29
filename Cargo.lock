@@ -3908,6 +3908,7 @@ dependencies = [
  "lightcraft-testkit",
  "lightcraft-tiff",
  "miniz_oxide 0.9.1",
+ "oxideav-jpegxs",
  "proptest",
  "rayon",
  "serde",
@@ -4894,6 +4895,11 @@ checksum = "36820e9051aca1014ddc75770aab4d68bc1e9e632f0f5627c4086bc216fb583b"
 dependencies = [
  "ttf-parser",
 ]
+
+[[package]]
+name = "oxideav-jpegxs"
+version = "0.0.8"
+source = "git+https://github.com/OxideAV/oxideav-jpegxs?rev=e99ae89540e771994f4d17e91ef0440fc15948d2#e99ae89540e771994f4d17e91ef0440fc15948d2"
 
 [[package]]
 name = "p256"

@@ -136,7 +136,9 @@ const EXIT_WAIT: std::time::Duration = std::time::Duration::from_secs(2);
 fn main() -> eframe::Result {
     // Windows: the update helper is a copy of this program started with `--finish-update`.
     #[cfg(windows)]
-    if let Some(result) = craft_update::self_update::finish(&craft_update::suite::LIGHTCRAFT, &std::env::args_os().skip(1).collect::<Vec<_>>()) {
+    if let Some(result) =
+        craft_update::self_update::finish(&lightcraft_ui_egui::updates_ui::FORK_APP, &std::env::args_os().skip(1).collect::<Vec<_>>())
+    {
         std::process::exit(i32::from(result.is_err()));
     }
     // First, so every start-up record is kept for the log file (`logging`).
@@ -267,7 +269,8 @@ fn main() -> eframe::Result {
                 // HDR display: SDR unless the surface, platform and display all allow HDR
                 hdr_display::report(cc.wgpu_render_state.as_ref().map(|r| r.target_format));
                 let mut app = LightcraftApp::new(session, services(cc, app_log_file.as_deref()));
-                app.set_startup_update_check(true);
+                // Fork updates are built and verified before publication; manual checks use the fork repository.
+                app.set_startup_update_check(false);
                 if let Some(ui) = prefs {
                     app.ui = ui;
                 }

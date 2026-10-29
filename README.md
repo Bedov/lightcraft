@@ -1,3 +1,7 @@
+> **Bedov fork:** based on upstream v0.15.0, with the verified Nikon Z6 III full-frame HE
+> decoder from our local build and a separate app/update identity. See
+> [fork scope, local build and update process](docs/bedov-fork.md). This is not an official LightCraft release.
+
 <p align="center">
   <a href="https://getartcraft.com/">
     <picture>

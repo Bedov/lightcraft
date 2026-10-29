@@ -25,6 +25,14 @@ fn harness(view: ViewMode, right: RightPanel) -> Harness<'static, LightcraftApp>
     h
 }
 
+#[test]
+fn empty_reference_view_renders_with_bundled_fonts() {
+    // No reference is pinned: rendering the English hint used to panic on its
+    // menu-triangle glyph, which is absent from the bundled fonts.
+    let h = harness(ViewMode::Reference, RightPanel::None);
+    assert!(h.state().ui.reference.is_none());
+}
+
 fn interactive(role: Role) -> bool {
     matches!(
         role,

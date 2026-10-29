@@ -7,6 +7,12 @@ use crate::LightcraftApp;
 #[cfg(not(target_arch = "wasm32"))]
 use craft_update::updater::{Action, Status, Updater};
 
+/// This fork must never install an upstream binary that omits its Nikon HE decoder.
+/// The separate app id also keeps its installation distinct from official LightCraft.
+#[cfg(not(target_arch = "wasm32"))]
+pub const FORK_APP: craft_update::App =
+    craft_update::App::new("lightcraft-bedov", "LightCraft Bedov", "Photo library and raw development with Nikon HE", "Bedov/lightcraft");
+
 pub(crate) struct Runtime {
     #[cfg(not(target_arch = "wasm32"))]
     updater: Updater,
@@ -26,7 +32,7 @@ impl Default for Runtime {
     fn default() -> Self {
         Self {
             #[cfg(not(target_arch = "wasm32"))]
-            updater: Updater::new(&craft_update::suite::LIGHTCRAFT, env!("CARGO_PKG_VERSION")),
+            updater: Updater::new(&FORK_APP, env!("CARGO_PKG_VERSION")),
             #[cfg(not(target_arch = "wasm32"))]
             startup_check: false,
             #[cfg(not(target_arch = "wasm32"))]
@@ -163,6 +169,14 @@ mod tests {
             assert!(!rt.updater.prompt_open());
             assert_eq!(rt.updater.status(), &Status::Idle);
         }
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn fork_update_identity_is_separate_from_upstream() {
+        assert_eq!(FORK_APP.repo, "Bedov/lightcraft");
+        assert_ne!(FORK_APP.bundle_id(), craft_update::suite::LIGHTCRAFT.bundle_id());
+        assert!(!FORK_APP.stems().any(|stem| craft_update::suite::LIGHTCRAFT.stems().any(|upstream| upstream == stem)));
     }
 
     #[test]

@@ -1,5 +1,8 @@
 # RAW parity: cameras, formats, demosaic, colour and lens profiles
 
+> **Bedov fork — 2026-10-29:** calibrated Nikon Z6 III full-frame HE decoding is available in this fork. Other HE/HE-star profiles remain preview-only. This does not imply Lightroom colour parity. Scope and reference tests: [Nikon HE](nikon-he.md).
+
+
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-18 · **Change:** minor (Minolta MRW decoded, 6 bodies verified; lossy JPEG XL DNG tiles with a non-linear declared transfer curve decode; Canon ColorData Kelvin; X-Trans CMOS 4 bodies take the X-T3's spectral matrices) · **Target:** Adobe Lightroom Classic 15.5 / Lightroom 9.6 (Camera Raw 18.7)
 
 Raw processing is the deepest single dimension of Lightroom parity: a photographer whose camera

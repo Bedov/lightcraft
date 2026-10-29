@@ -4,15 +4,16 @@
 //! layout, SubIFDs, maker note header) and the ExifTool Nikon tag-name documentation (`0x000c` WB_RBLevels,
 //! `0x003d` BlackLevel, `0x0096` NEFLinearizationTable). The Huffman-compressed data (compression 34713) is decoded
 //! by [`super::nefc`], which documents its clean-room sources; "lossy after split" files are decoded when their strip follows the
-//! rule documented there; files it can't decode are reported as [`RawError::Unsupported`] and their embedded previews still work. So are High Efficiency NEFs
+//! rule documented there; files it cannot decode return [`RawError::Unsupported`] and their embedded previews still work. High Efficiency NEFs
 //! (HE / HE★, Z 8, Z 9, Z 6III, Z f): they keep compression 34713 but carry a wavelet codestream that starts with
 //! the JPEG XS markers SOC + CAP (ISO/IEC 21122-1, `FF10 FF50`) and have no `0x0096` table (issue #193).
 //! Strips labelled 34713 without a `0x0096`
 //! linearization table are packed uncompressed data in several measured layouts ([`PackedLayout`]) or, when the strip
 //! is exactly three bytes per pixel, Nikon small raw ([`small_raw`]); the D1X's genuinely Huffman-coded strip stays
 //! refused.
+//! The measured Z6 III full-frame HE profile is decoded by `nefh`; other HE profiles remain unsupported.
 
-use super::{nefc, white_from_data};
+use super::{nefc, nefh, white_from_data};
 use crate::tiffraw::{Packing, check_image, read_image};
 use crate::{BlackLevel, Cfa, ColorData, Mode, OpcodeLists, RawData, RawError, RawFormat, RawImage, Rect, Result};
 use lightcraft_geom::Orientation;
@@ -28,7 +29,7 @@ const CROP_AREA: u16 = 0x0045;
 const JPEG_XS_START: [u8; 4] = [0xff, 0x10, 0xff, 0x50];
 /// Why a High Efficiency NEF shows its embedded preview: the UI shows the part before " (".
 pub(crate) const HIGH_EFFICIENCY: &str =
-    "Nikon High Efficiency NEF (HE / HE★, a JPEG XS-based codec with no public specification; shoot RAW Lossless compressed to edit the raw data)";
+    "Nikon High Efficiency NEF (this camera or compression profile is unverified; native HE support covers the calibrated Z6 III full-frame profile)";
 /// Maker note `0x0014`, the "NRW" data block of Coolpix raws: `"NRW "` + a 4-character version, then fields. In
 /// version `0104` the `u32` at byte `0x20` is the black level in sample units (200 in the four 12-bit files here
 /// that have 200 as their darkest samples, 0 in the one whose samples reach 0).
@@ -232,18 +233,24 @@ pub(crate) fn decode(bytes: &[u8], mode: Mode) -> Result<RawImage> {
     let (w, h) = (info.width as usize, info.height as usize);
     let bits = info.bits() as u32;
     let make = ifd0.string(t::MAKE).unwrap_or_default();
+    let model = ifd0.string(t::MODEL).unwrap_or_default();
     let mn =
         tiff.exif().and_then(|e| e.get(t::MAKER_NOTE)).and_then(|e| makernote::parse_makernote(bytes, e.offset, e.count() as u64, tiff.order, &make));
     if let Some(strip) = small_raw_strip(&info, bytes.len(), mn.as_ref()) {
         return small_raw(bytes, &tiff, &info, strip, mode);
     }
+    let native_he = model.trim() == "NIKON Z6_3"
+        && (w, h, bits) == (6064, 4040, 14)
+        && info.compression == t::compression::NIKON
+        && is_he(bytes, &info)
+        && mn.as_ref().and_then(|m| m.ifd.f64s(BLACK_LEVEL)).is_some_and(|b| b.len() == 4 && b.iter().all(|v| *v == 1008.0));
     // the header probe reads only the rows the masked-column test needs
     let rows = match mode {
         Mode::Full => h,
         Mode::Header => h.min(MASK_ROWS),
     };
     let data = if info.compression == t::compression::NIKON {
-        compressed(bytes, &info, mn.as_ref(), rows)?
+        compressed(bytes, &info, mn.as_ref(), rows, native_he)?
     } else {
         uncompressed(bytes, &info, tiff.order, mn.as_ref(), rows)?
     };
@@ -271,19 +278,26 @@ pub(crate) fn decode(bytes: &[u8], mode: Mode) -> Result<RawImage> {
         (Some([2, 2]), Some(p)) if p.len() == 4 && p.iter().all(|&c| c <= 2) => Cfa { width: 2, height: 2, pattern: p.to_vec() },
         _ => Cfa::bayer_static("RGGB"),
     };
-    let model = ifd0.string(t::MODEL).unwrap_or_default();
     let body = measured_body(&model, w, h, bits);
     let active_w = trailing_masked_columns(samples, w, bits);
     // the white level is measured from the whole image (or known for a measured body); the probe (no samples in its
     // result) takes the nominal one
-    let white = match (body.and_then(|b| b.white), mode) {
-        (Some(white), _) => white,
-        (None, Mode::Full) => white_from_data(samples, bits),
-        (None, Mode::Header) => ((1u32 << bits.clamp(1, 16)) - 1) as f32,
+    let white = if native_he {
+        15892.0
+    } else {
+        match (body.and_then(|b| b.white), mode) {
+            (Some(white), _) => white,
+            (None, Mode::Full) => white_from_data(samples, bits),
+            (None, Mode::Header) => ((1u32 << bits.clamp(1, 16)) - 1) as f32,
+        }
     };
-    let crop = match body {
-        Some(&MeasuredBody { crop: (x, y, cw, ch), .. }) if x + cw <= active_w && y + ch <= h => Rect::new(x, y, cw, ch),
-        _ => default_crop(mn.as_ref(), active_w, h),
+    let crop = if native_he {
+        Rect::new(8, 4, 6048, 4032)
+    } else {
+        match body {
+            Some(&MeasuredBody { crop: (x, y, cw, ch), .. }) if x + cw <= active_w && y + ch <= h => Rect::new(x, y, cw, ch),
+            _ => default_crop(mn.as_ref(), active_w, h),
+        }
     };
     let pixel_aspect = pixel_aspect_of(raw);
     let mut metadata = lightcraft_meta::from_tiff(&tiff);
@@ -459,15 +473,29 @@ fn unpack_packed(src: &[u8], w: usize, h: usize, bits: u32, layout: PackedLayout
     out
 }
 
-/// Nikon Huffman-compressed strip (see [`super::nefc`]); the decode table is maker note `0x0096`. Without a table the
-/// strip may be packed uncompressed data (see [`PackedLayout`]).
-fn compressed(bytes: &[u8], info: &ImageInfo, mn: Option<&makernote::MakerNote>, rows: usize) -> Result<RawData> {
-    let starts_with = |magic: &[u8]| {
-        let start = info.chunks(bytes.len() as u64).first().and_then(|c| usize::try_from(c.offset).ok());
-        start.and_then(|o| bytes.get(o..o.checked_add(magic.len())?)) == Some(magic)
-    };
-    if starts_with(&JPEG_XS_START) {
-        return Err(RawError::Unsupported(HIGH_EFFICIENCY.into()));
+/// A High Efficiency codestream is identified before trying the packed/Huffman paths.
+fn is_he(bytes: &[u8], info: &ImageInfo) -> bool {
+    let start = info.chunks(bytes.len() as u64).first().and_then(|c| usize::try_from(c.offset).ok());
+    start.and_then(|o| bytes.get(o..o.checked_add(JPEG_XS_START.len())?)) == Some(JPEG_XS_START.as_slice())
+}
+
+/// Nikon compressed strips: the calibrated HE profile, Huffman, or measured packed layouts.
+fn compressed(bytes: &[u8], info: &ImageInfo, mn: Option<&makernote::MakerNote>, rows: usize, native_he: bool) -> Result<RawData> {
+    if is_he(bytes, info) {
+        if !native_he {
+            return Err(RawError::Unsupported(HIGH_EFFICIENCY.into()));
+        }
+        check_image(bytes, info)?;
+        let chunks = info.chunks(bytes.len() as u64);
+        if chunks.len() != 1 || info.samples_per_pixel != 1 {
+            return Err(RawError::Unsupported("Nikon HE requires one full-image strip".into()));
+        }
+        let first = chunks.first().ok_or_else(|| RawError::Corrupt("Nikon HE missing strip".into()))?;
+        let start = usize::try_from(first.offset).map_err(|_| RawError::Corrupt("Nikon HE strip offset".into()))?;
+        let len = usize::try_from(first.len).map_err(|_| RawError::Corrupt("Nikon HE strip length".into()))?;
+        let src =
+            start.checked_add(len).and_then(|end| bytes.get(start..end)).ok_or_else(|| RawError::Corrupt("Nikon HE strip outside file".into()))?;
+        return Ok(RawData::U16(nefh::decode_rows(src, info.width as usize, info.height as usize, rows)?));
     }
     let Some(table) = mn.and_then(|m| Some((m.ifd.bytes(LINEARIZATION_TABLE)?, m.order))) else {
         return packed(bytes, info, rows);
