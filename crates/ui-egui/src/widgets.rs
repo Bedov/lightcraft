@@ -1232,7 +1232,7 @@ fn wheel_slider_key() -> egui::Id {
 }
 
 /// Whether the widget with keyboard focus is a develop slider selected by a click, drag or Tab.
-/// It owns only the arrow keys: every other shortcut still works. Wheel selection is separate.
+/// It owns only Up/Down; Left/Right and other shortcuts still work. Wheel selection is separate.
 pub fn slider_has_focus(ctx: &egui::Context) -> bool {
     let focused = ctx.memory(|m| m.focused());
     focused.is_some() && focused == ctx.data(|d| d.get_temp::<egui::Id>(focused_slider_key()))

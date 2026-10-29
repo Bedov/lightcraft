@@ -11,7 +11,8 @@ This fork keeps a small set of local changes on a tested upstream release. The i
 - The MIT decoder dependency is pinned by commit, without machine-specific paths.
 - **LightCraft Bedov** has its own bundle/update identity. Its updater only uses
   `Bedov/lightcraft`; automatic startup checks are disabled. Official binaries omit our HE extension.
-- Keyboard navigation retains upstream behaviour in this first migration.
+- Left/Right change photos even after clicking or dragging a develop slider. Up/Down still
+  adjust the slider; numeric/text entry, dialogs and photo-tool handles retain their keys.
 - Migration checks also caught an unsupported glyph in the empty Reference view's English
   hint. The hint now uses an available arrow, retaining its translated messages, with a regression test.
 

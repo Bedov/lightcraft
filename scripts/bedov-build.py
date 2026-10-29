@@ -54,7 +54,7 @@ def main():
     info = plistlib.loads((ROOT / 'packaging/macos/Info.plist.in').read_bytes())
     info.update(CFBundleDisplayName='LightCraft Bedov', CFBundleName='LightCraft Bedov',
                 CFBundleIdentifier='ai.storyteller.lightcraft-bedov', CFBundleShortVersionString=version.split('-')[0],
-                CFBundleVersion=version.split('-')[0], LightCraftVersion=version + '-bedov.1',
+                CFBundleVersion=version.split('-')[0], LightCraftVersion=version + '-bedov.2',
                 LightCraftBuildCommit=sha + (' + working changes' if dirty else ''),
                 LSEnvironment={'LIGHTCRAFT_LIBRARY': str(library), 'LIGHTCRAFT_CONFIG_DIR': str(config),
                                'LIGHTCRAFT_CONTROL_PORT': str(args.control_port)})

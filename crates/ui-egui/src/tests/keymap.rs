@@ -38,6 +38,91 @@ fn click(h: &mut Headless, id: &str) {
 }
 
 #[test]
+fn bedov_navigation_after_dragging_a_slider_keeps_both_photos_edits() {
+    let mut h = demo();
+    view(&mut h, json!({"right": "edit", "openSections": ["light"], "histogram": false}));
+    let photos = h.app.session.visible_cloned();
+    let (first, next) = (photos[1], photos[2]);
+    select(&mut h, first);
+    let next_settings = serde_json::to_value(h.app.session.develop_of(next)).unwrap();
+    assert_eq!(h.request("ui.dragWidget", json!({"id": "slider:light.exposure", "dx": 16, "steps": 4}), T)["ok"], true);
+    h.step();
+    assert!(crate::widgets::slider_has_focus(&h.view.ctx));
+    let exposure = h.app.session.develop_of(first).unwrap().light.exposure;
+    key(&mut h, "Up", false);
+    assert_eq!(h.app.session.active(), Some(first));
+    assert!(h.app.session.develop_of(first).unwrap().light.exposure > exposure);
+    let first_settings = serde_json::to_value(h.app.session.develop_of(first)).unwrap();
+    let undo = h.app.session.undo.len();
+    key(&mut h, "Right", false);
+    assert_eq!(h.app.session.active(), Some(next), "a focused slider must not trap photo navigation");
+    key(&mut h, "Left", false);
+    assert_eq!(h.app.session.active(), Some(first));
+    assert_eq!(serde_json::to_value(h.app.session.develop_of(first)).unwrap(), first_settings);
+    assert_eq!(serde_json::to_value(h.app.session.develop_of(next)).unwrap(), next_settings);
+    assert_eq!(h.app.session.undo.len(), undo, "navigation must not edit either photo");
+    key(&mut h, "Down", false);
+    assert!((h.app.session.develop_of(first).unwrap().light.exposure - exposure).abs() < 1e-9);
+}
+
+#[test]
+fn bedov_navigation_waits_while_typing_a_slider_value() {
+    let mut h = demo();
+    view(&mut h, json!({"right": "edit", "openSections": ["light"], "histogram": false}));
+    let photos = h.app.session.visible_cloned();
+    let (first, next) = (photos[1], photos[2]);
+    select(&mut h, first);
+    click(&mut h, "sliderValue:light.exposure");
+    assert_eq!(h.request("ui.text", json!({"text": "1.5"}), T)["ok"], true);
+    key(&mut h, "Left", false);
+    assert_eq!(h.app.session.active(), Some(first));
+    assert_eq!(h.request("ui.text", json!({"text": "2"}), T)["ok"], true);
+    key(&mut h, "Right", false);
+    assert_eq!(h.app.session.active(), Some(first));
+    key(&mut h, "Enter", false);
+    assert!((h.app.session.develop_of(first).unwrap().light.exposure - 1.25).abs() < 1e-9, "Left must move the text cursor");
+    key(&mut h, "Right", false);
+    assert_eq!(h.app.session.active(), Some(next), "navigation resumes after committing the number");
+}
+
+#[test]
+fn bedov_navigation_waits_until_the_pointer_edit_has_finished() {
+    use egui::{Event, Key, Modifiers, PointerButton, vec2};
+    let mut h = demo();
+    view(&mut h, json!({"right": "edit", "openSections": ["light"], "histogram": false}));
+    let photos = h.app.session.visible_cloned();
+    let (first, next) = (photos[1], photos[2]);
+    select(&mut h, first);
+    let next_settings = serde_json::to_value(h.app.session.develop_of(next)).unwrap();
+    let start = h.app.widgets.iter().find(|(id, _)| id == "slider:light.exposure").unwrap().1.center();
+    let end = start + vec2(16.0, 0.0);
+    let arrow = |pressed| Event::Key { key: Key::ArrowRight, physical_key: None, pressed, repeat: false, modifiers: Modifiers::NONE };
+    h.events.extend([
+        Event::PointerMoved(start),
+        Event::PointerButton { pos: start, button: PointerButton::Primary, pressed: true, modifiers: Modifiers::NONE },
+    ]);
+    h.step();
+    h.events.push(Event::PointerMoved(end));
+    h.step();
+    assert!(crate::widgets::slider_has_focus(&h.view.ctx));
+    h.events.push(arrow(true));
+    h.step();
+    assert_eq!(h.app.session.active(), Some(first), "do not navigate during the drag");
+    h.events.extend([
+        arrow(false),
+        Event::PointerButton { pos: end, button: PointerButton::Primary, pressed: false, modifiers: Modifiers::NONE },
+        arrow(true),
+    ]);
+    h.step();
+    assert_eq!(h.app.session.active(), Some(first), "finish the release on its original photo");
+    h.events.push(arrow(false));
+    h.step();
+    key(&mut h, "Right", false);
+    assert_eq!(h.app.session.active(), Some(next));
+    assert_eq!(serde_json::to_value(h.app.session.develop_of(next)).unwrap(), next_settings);
+}
+
+#[test]
 fn rebound_shortcut_fires_and_the_old_key_does_not() {
     let mut h = demo();
     let r = h.app.run("app.setShortcut", json!({"id": "view.survey", "shortcut": "Shift+K"})).unwrap();

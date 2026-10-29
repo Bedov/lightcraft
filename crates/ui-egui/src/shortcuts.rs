@@ -331,7 +331,7 @@ fn grid_key_command(keymap: &Keymap, grid: bool, fullscreen: bool, id: &'static 
     if keymap.iter().any(|(other, sc)| other != id && find_bindable(other).is_some() && parse(sc) == Some(shortcut)) { None } else { Some(command) }
 }
 
-/// Content widgets keep keyboard ownership, including text fields and arrow-driven sliders.
+/// Content widgets keep keyboard ownership; develop sliders keep only their vertical nudges.
 /// Dock chrome owns activation, traversal, resizing and cancellation; its other keys reach commands.
 fn keyboard_owned(app: &LightcraftApp, ctx: &egui::Context) -> bool {
     if !ctx.egui_wants_keyboard_input() {
@@ -339,9 +339,15 @@ fn keyboard_owned(app: &LightcraftApp, ctx: &egui::Context) -> bool {
         return ctx.input(|input| input.key_pressed(Key::Escape))
             && app.widgets.iter().any(|(widget, _)| widget.starts_with("sliderField:") && crate::text_field::was_editing(ctx, widget));
     }
-    // a selected slider keeps its arrow keys; everything else is a shortcut
+    // A selected slider uses Up/Down to nudge. Left/Right remain photo shortcuts
+    // after a click or drag; typing its numeric value has separate text-field focus.
     if crate::widgets::slider_has_focus(ctx) {
-        return ctx.input(|input| [Key::ArrowLeft, Key::ArrowRight, Key::ArrowUp, Key::ArrowDown].iter().any(|key| input.key_pressed(*key)));
+        return ctx.input(|input| {
+            [Key::ArrowUp, Key::ArrowDown].iter().any(|key| input.key_pressed(*key))
+                // Finish the pointer edit on its own photo before navigation can run.
+                || ((input.pointer.any_down() || input.pointer.any_released())
+                    && [Key::ArrowLeft, Key::ArrowRight].iter().any(|key| input.key_pressed(*key)))
+        });
     }
     // a handle on the photo keeps the arrows (it moves) and Return / Space (it acts)
     if crate::canvas_keys::has_focus(ctx) {
@@ -381,6 +387,14 @@ pub fn handle(app: &mut LightcraftApp, ctx: &egui::Context) {
     }
     if app.recording_shortcut.is_none() && app.ui.name_edit.is_none() && crate::panels::person::handle_bulk_key(app, ctx) {
         return;
+    }
+    if crate::widgets::slider_has_focus(ctx)
+        && ctx.input(|input| [Key::ArrowLeft, Key::ArrowRight, Key::ArrowUp, Key::ArrowDown].iter().any(|key| input.key_pressed(*key)))
+    {
+        // egui schedules directional focus traversal before this pass. The slider's
+        // arrows nudge its value or navigate photos; keep the next key in that workflow,
+        // even on the first frame after a drag acquired focus. Tab still changes focus.
+        ctx.memory_mut(|memory| memory.move_focus(egui::FocusDirection::None));
     }
     // don't steal keys from text fields or from the keymap editor recording a shortcut
     if keyboard_owned(app, ctx) || app.recording_shortcut.is_some() || app.ui.name_edit.is_some() {
