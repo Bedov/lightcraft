@@ -375,6 +375,11 @@ fn each_tab_remembers_how_far_it_was_scrolled() {
         h.step();
     }
     h.settle(T);
+    // A taller Import page does not immediately hit its bottom. Let wheel easing finish
+    // before recording the offset; settle() waits for renders, not the full scroll tail.
+    for _ in 0..60 {
+        h.step();
+    }
     let scrolled = rect(&h, "check:settings.perCamera").top();
     assert!(scrolled < top - 50.0);
     // When another tab is opened, it starts at its top
@@ -383,7 +388,11 @@ fn each_tab_remembers_how_far_it_was_scrolled() {
     assert!(same(fresh, mode), "Interface is at its top, as when first opened: {fresh:?} -> {mode:?}");
     // And Import is where it was left
     show(&mut h, "import");
-    assert!((rect(&h, "check:settings.perCamera").top() - scrolled).abs() < 0.5, "Import is where it was left");
+    assert!(
+        (rect(&h, "check:settings.perCamera").top() - scrolled).abs() < 0.5,
+        "Import is where it was left: {scrolled} -> {}",
+        rect(&h, "check:settings.perCamera").top()
+    );
     // And it is still there when Settings is closed and opened again (documented in What's New)
     assert_eq!(h.request("ui.dialog.cancel", json!({}), T)["ok"], true);
     h.settle(T);

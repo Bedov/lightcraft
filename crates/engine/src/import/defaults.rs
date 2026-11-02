@@ -18,6 +18,8 @@ pub fn has_import_look(p: &Photo) -> bool {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ImportDefaults {
+    /// Bedov camera/ISO detail defaults; opt-in and never retroactive.
+    pub bedov_auto_detail: bool,
     /// Preset applied to raw files (`None` = the LightCraft default).
     pub raw_preset: Option<String>,
     /// Use a camera's own default (below) when the photo's camera has one.
@@ -81,7 +83,8 @@ pub fn apply_import_defaults(s: &Session, p: &mut Photo) {
     if let Some(mp) = d.metadata_preset.as_ref().and_then(|n| s.metadata_presets.iter().find(|m| m.name.eq_ignore_ascii_case(n))) {
         crate::cmd::metadata::apply_to(&mut p.meta, &mp.fields);
     }
-    let base = p.camera_defaults();
+    let camera_base = p.camera_defaults();
+    let base = crate::cmd::bedov_detail::import_start(s, p, camera_base.clone());
     // a raw shown from its embedded JPEG gets the rendered-file default, not the raw one
     let raw = p.develops_raw();
     let preset = s.import_defaults.preset_for(raw, &p.meta.camera).and_then(|id| s.presets.iter().find(|x| x.id == id));
@@ -89,11 +92,11 @@ pub fn apply_import_defaults(s: &Session, p: &mut Photo) {
         Some(pr) => {
             let look = std::sync::Arc::new(pr.apply(&base, 1.0));
             p.develop = look.clone();
-            p.import_look = (*look != base).then_some(look);
+            p.import_look = (*look != camera_base).then_some(look);
         }
         None => {
             p.develop = std::sync::Arc::new(base);
-            p.import_look = None;
+            p.import_look = (*p.develop != camera_base).then(|| p.develop.clone());
         }
     }
 }

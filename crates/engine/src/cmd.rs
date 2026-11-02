@@ -5,6 +5,7 @@
 //! `edit.*` (undo/redo), and queries (`catalog.query`, `photo.inspect`, `develop.get`…).
 
 mod activity;
+pub mod bedov_detail;
 mod before;
 pub(crate) mod browse;
 mod color;
@@ -173,6 +174,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(geocode::specs());
         v.extend(filters::specs());
         v.extend(denoise::specs());
+        v.extend(bedov_detail::specs());
         v.extend(face_models::specs());
         v.extend(face_detect::specs());
         v.extend(face_recognize::specs());

@@ -184,6 +184,9 @@ fn trashed_file_is_gone(cat: &lightcraft_catalog::Catalog, id: PhotoId) -> bool 
 /// a Move's sources are removed once it is saved). On a failed commit a Move's placed files are
 /// taken back.
 pub fn commit_prepared(s: &mut Session, opts: &ImportOptions, now: &str, prepared: Prepared) -> crate::Result<ImportReport> {
+    if s.import_defaults.bedov_auto_detail {
+        s.denoise_refresh_active(false);
+    }
     let now = now.to_string();
     let mut report = ImportReport { scanned: prepared.scanned, ..Default::default() };
     let mut ops = Vec::new();

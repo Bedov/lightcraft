@@ -3,6 +3,7 @@ use super::widgets::{button_width, check, choices, heading, hint, path_label, ro
 use super::{LightcraftApp, RichText, Tokens, json, register};
 
 pub(super) fn import_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+    crate::panels::bedov_detail::import_options(app, ui, t);
     let d = app.session.import_defaults.clone();
     heading(ui, t, crate::i18n::tr("Raw defaults"));
     hint(ui, t, crate::i18n::tr("Settings new raw photos start from. Changing them doesn't touch photos already in the library."));

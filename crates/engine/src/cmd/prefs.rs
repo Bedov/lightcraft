@@ -34,6 +34,14 @@ fn prefs(s: &mut Session, p: &Value) -> Result<Value> {
     let mut d: ImportDefaults = s.import_defaults.clone();
     let mut changed = false;
     if let Some(i) = p.get("import") {
+        if let Some(v) = i.get("bedovAutoDetail") {
+            let on = v.as_bool().ok_or_else(|| bad(ID, "bedovAutoDetail must be true or false"))?;
+            s.denoise_refresh_active(false);
+            if on && !super::bedov_detail::available(s) {
+                return Err(bad(ID, "install and select RawNIND UtNet2 (Bayer) in Settings > AI Denoise first"));
+            }
+            d.bedov_auto_detail = on;
+        }
         if let Some(v) = i.get("rawPreset") {
             d.raw_preset = preset_ref(s, v)?;
         }
@@ -110,7 +118,7 @@ pub fn specs() -> Vec<CommandSpec> {
         "Library Preferences",
         [],
         None,
-        "{import?: {rawPreset?: presetId|\"default\", otherPreset?: presetId|\"default\", perCamera?: bool, cameras?: [{camera: \"Make Model\", preset: presetId|null}], copyright?: text, creator?: text (given to imported photos without one), showOnCard?: bool (open the import review when a camera or card is connected)}, camera?: {camera, preset?, remove?: bool}, cacheMb?: n (0 = default), forgetLocalDays?: n (forget untouched Local photos of folders not browsed for n days; 0 = never)} — develop defaults applied on import (raws / other images / per camera) and the thumbnail cache size, saved with the library → {xmp, import, cacheMb, forgetLocalDays, persistent}",
+        "{import?: {bedovAutoDetail?: bool (Bedov camera/ISO detail defaults, requires selected RawNIND), rawPreset?: presetId|\"default\", otherPreset?: presetId|\"default\", perCamera?: bool, cameras?: [{camera: \"Make Model\", preset: presetId|null}], copyright?: text, creator?: text (given to imported photos without one), showOnCard?: bool (open the import review when a camera or card is connected)}, camera?: {camera, preset?, remove?: bool}, cacheMb?: n (0 = default), forgetLocalDays?: n (forget untouched Local photos of folders not browsed for n days; 0 = never)} — develop defaults applied on import (raws / other images / per camera) and the thumbnail cache size, saved with the library → {xmp, import, cacheMb, forgetLocalDays, persistent}",
         always,
         prefs
     )]

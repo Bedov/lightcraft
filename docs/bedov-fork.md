@@ -16,6 +16,9 @@ This fork keeps a small set of local changes on a tested upstream release. The i
 - Migration checks also caught an unsupported glyph in the empty Reference view's English
   hint. The hint now uses an available arrow, retaining its translated messages, with a regression test.
 
+- Bedov Auto Detail: opt-in import defaults by camera/ISO plus an explicit, undoable selected-photo command.
+  [Policy, UI and update hooks](bedov-auto-detail.md) are isolated from upstream raw decoding and rendering.
+
 ## Build on macOS
 
 Use Rust at least as new as `workspace.package.rust-version` in `Cargo.toml`. Run `cargo xtask ci`
@@ -37,7 +40,9 @@ outside Git. An ad-hoc signed local build is not a notarized distribution releas
 3. Resolve conflicts while preserving upstream decoder fixes and the HE extension.
 4. Run `cargo xtask ci`, then the private reference tests described in `nikon-he.md`.
    Normal CI reports the private tests as skipped when those files are unavailable.
-5. Compare Canon and Nikon renders and verify saved edits on a copy of a current library.
+5. Run the `bedov_detail` tests; recheck the small integration hooks listed in `bedov-auto-detail.md`.
+   Verify import defaults, XMP precedence, selected targets, saved versions/undo, and a real RawNIND export.
+   Compare Canon and Nikon renders and verify saved edits on a copy of a current library.
 6. Build a separate app, check opening and export, then advance `bedov/stable` and push it.
 
 Keep the last working app and a stable catalog backup. Upstream updates are reviewed merges,
