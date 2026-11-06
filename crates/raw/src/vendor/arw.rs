@@ -748,7 +748,11 @@ pub(crate) fn decode(bytes: &[u8], mode: Mode) -> Result<RawImage> {
         .or_else(|| mn.as_ref().and_then(|m| tag2010_wb(body, m.ifd.bytes(MN_TAG2010)?, m.order)))
         .or_else(|| sr2_old_wb(sr2()?));
     let crop = match (raw.u64s(CROP_TOP_LEFT).as_deref(), raw.u64s(CROP_SIZE).as_deref()) {
-        (Some([x, y]), Some([cw, ch])) if *cw > 0 && *ch > 0 => Rect::new(*x as usize, *y as usize, *cw as usize, *ch as usize).clipped(w, h),
+        (Some([x, y]), Some([cw, ch])) if *cw > 0 && *ch > 0 => {
+            let sony = Rect::new(*x as usize, *y as usize, *cw as usize, *ch as usize).clipped(w, h);
+            // Bedov fork: an APS-C window left in these tags on a full-frame image (see `arw_stale_crop`)
+            super::arw_stale_crop::image_crop(sony, dng_default_crop(raw, w, h), tiff.exif())
+        }
         _ => {
             let exif_size = tiff.exif().and_then(|e| Some((e.u64(t::PIXEL_X_DIMENSION)?, e.u64(t::PIXEL_Y_DIMENSION)?)));
             let crop = default_crop(raw, mn.as_ref(), exif_size, w, h, packed12);

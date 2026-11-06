@@ -18,6 +18,11 @@ This fork keeps a small set of local changes on a tested upstream release. The i
 
 - Bedov Auto Detail: opt-in import defaults by camera/ISO plus an explicit, undoable selected-photo command.
   [Policy, UI and update hooks](bedov-auto-detail.md) are isolated from upstream raw decoding and rendering.
+- Sony full-frame ARWs whose crop tags (`0x74c7/0x74c8`) still hold the centred APS-C window open at full size.
+  Some ILCE-7M4 files (firmware 6.01) store the whole sensor and a full-frame default crop, and report a full-frame
+  35 mm focal length, yet Sony's tags give 4608 × 3072. Only that combination uses the default crop: genuine APS-C files,
+  which store just the window, and in-camera aspect ratios are unchanged. The rule and its tests live in
+  `crates/raw/src/vendor/arw_stale_crop.rs`, hooked from one line of `arw.rs`. After an upstream merge, check that hook.
 
 ## Build on macOS
 
