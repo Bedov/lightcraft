@@ -37,6 +37,12 @@ and AI Denoise amount/on switch change. Light, colour, clarity, texture, crop an
 Raw Details and Super Resolution are preserved. Camera presets, explicit import presets and XMP
 take precedence over these defaults. Reset returns to the recorded import look.
 
+Since the 0.19.0 update, new photos use upstream process V6 with working pixel-scale Radius
+and Detail. Existing V1/V2 edits retain the older sharpening implementation until explicitly
+updated; applying Auto Detail does not change their process. The policy still targets the
+verified RawNIND model, not the new built-in BM3D denoiser. Compare that alternative separately
+before choosing its defaults.
+
 The preview and export use the same saved settings and denoised cache. Existing export output
 sharpening remains a separate choice for final size and paper. No extra denoising is silently added
 at export. The existing engine computes a missing denoised result when exporting.

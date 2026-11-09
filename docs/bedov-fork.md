@@ -1,6 +1,7 @@
 # Bedov LightCraft fork
 
-This fork keeps a small set of local changes on a tested upstream release. The initial base is
+This fork keeps a small set of local changes on an upstream release. The current base is
+`v0.19.0` (`16636c4`), integrated on 2026-11-09. The initial base was
 `v0.15.0` (`e381c1a`), migrated from the local `0.9.1` snapshot
 `d999e382bafbb5d5c54482fdb1d11f6a63bfdf69` on 2026-10-29.
 
@@ -39,6 +40,19 @@ Library paths, photographs, user settings, calibration samples, binaries and bui
 outside Git. An ad-hoc signed local build is not a notarized distribution release.
 
 ## Adopt an upstream release
+
+The 0.19.0 integration retains all four Bedov extensions and uses upstream's pixel-scale
+sharpening, BM3D denoiser, colour NR and user-supplied DCP import. Existing photos retain
+their saved rendering process. Test **Update to Current Process** on copies before applying
+it to an edited series: V6 includes tone changes as well as detail improvements.
+The selected RawNIND model remains selected; the built-in BM3D is an alternative, not an
+automatic replacement. Bedov Auto Detail still requires the verified RawNIND model.
+The updater identity is centralized in `ui-egui::UPDATE_APP`; both the dialog and restart
+installer must continue to use the Bedov repository and separate bundle identity.
+The macOS V1/V2 golden-render fixture was refreshed for upstream's intentional 8-bit dithering
+(#3509), verified against the pre-V3 renderer with only that quantization change applied.
+This corrects the test reference, without changing the renderer. Saved process versions are
+preserved, but an update is not a promise of bit-identical JPEGs across all decoder/GPU changes.
 
 1. `git fetch upstream --tags` and inspect the official release notes.
 2. Start an update branch from `bedov/stable`, then merge the chosen release tag.
