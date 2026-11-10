@@ -136,7 +136,13 @@ it (Enable Profile Corrections). The camera applied the same correction to its J
 (`fit_preview`, `monochrome_look`, the near-black tone fallback) therefore takes its sensor proxy through
 `look_proxies`, which multiplies it by that gain as `fit_dng_tone` already did (`correct_vignetting`). Before
 `LOOK_VERSION` 13 the RAF fit saw the uncorrected sensor: the tone curve learned the JPEG's corrected brightness, and
-the render added the correction again. Lens-database corrections (`LIGHTCRAFT_LENSFUN_DIR`) reach the fit the same way.
+the render added the correction again. Lens-database corrections (lensfun, `LIGHTCRAFT_LENSFUN_DIR` or the downloaded
+database) do not reach the fit (`LOOK_VERSION` 14, Bedov fork): they measure the lens, not what the camera did to its
+JPEG. An ILCE-7M4 with a Tamron 35-150 mm A058 or a Sigma 20 mm F1.4 Art records shading correction Auto, but its own
+table is much milder than lensfun's: the camera JPEG's radial L\* bands stay within 0.6 of the plain sensor's render,
+while lensfun lifts those corners up to 5× (35 mm f/2). Fitted on the database-corrected sensor, the curve came out
+about 10 L\* darker, and every photo with Enable Profile Corrections off rendered that dark. Such a profile still
+applies to the render when that switch is on.
 `proxies` applies the gain before it moves the sensor into the JPEG's lens geometry, so each pixel gets the gain of the
 position it samples, as in the render. The choice between the warped and the plain sensor (`alignment`) leaves out
 the pixels the warp finds no sensor for. It used to read them as black, a false edge along the border that made the

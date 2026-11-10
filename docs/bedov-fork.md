@@ -24,6 +24,13 @@ This fork keeps a small set of local changes on an upstream release. The current
   35 mm focal length, yet Sony's tags give 4608 × 3072. Only that combination uses the default crop: genuine APS-C files,
   which store just the window, and in-camera aspect ratios are unchanged. The rule and its tests live in
   `crates/raw/src/vendor/arw_stale_crop.rs`, hooked from one line of `arw.rs`. After an upstream merge, check that hook.
+- Lens-database (lensfun) vignetting no longer reaches the camera-look fit, only a file's own correction does
+  (`correct_vignetting` in `crates/engine/src/camera_preview/look_fit.rs`, `LOOK_VERSION` 14). Upstream 0.19 fitted
+  the look on the database-corrected sensor, although the camera never applied that profile to its JPEG: once the app
+  had downloaded the database, photos whose lens has lensfun vignetting data (ILCE-7M4 with Tamron 35-150 mm A058,
+  FE 85 mm F1.8 or Sigma 20 mm Art; Canon EF 24-70/70-200 and Nikon Z 24-70/70-200/35/50 mm on their bodies)
+  rendered up to 12 L\* darker with Enable Profile Corrections off. After an upstream merge, check that filter and keep the fork's
+  `LOOK_VERSION` / `RENDER_CACHE_VERSION` above upstream's.
 
 ## Build on macOS
 

@@ -288,8 +288,16 @@ pub(super) fn look_proxies(
 /// Multiply the sensor proxy (sensor orientation, default crop) by the embedded vignetting correction, the gain the
 /// pipeline applies to the render (`optics::embedded_vignette_gain`; `lens` is in the oriented, cropped frame): the
 /// camera JPEG has it applied, so a tone fitted without it brightens the render's corners twice.
+///
+/// Only the file's own correction ([`LensSource::File`](lightcraft_develop::LensSource::File): DNG opcodes, a
+/// Fujifilm maker note) is the one the camera applied to its JPEG. A lens-database profile is someone else's
+/// measurement of the lens and says nothing about the JPEG: an ILCE-7M4 with a Tamron 35-150 mm A058 or a Sigma 20 mm
+/// Art corrects its JPEG with its own, much milder shading table (the JPEG's radial brightness stays within 0.6 L* of
+/// the uncorrected sensor's), while lensfun lifts those corners up to 5×. Fitted on the database-corrected sensor, the
+/// curve came out about 10 L* too dark, and photos with Enable Profile Corrections off rendered that dark. The fit
+/// sees the plain sensor for such a profile, as it did before there was a database.
 pub(super) fn correct_vignetting(sensor: &mut Rgb32f, lens: Option<&lightcraft_develop::EmbeddedLens>, orientation: lightcraft_geom::Orientation) {
-    let Some(vignette) = lens.and_then(|l| l.vignette) else { return };
+    let Some(vignette) = lens.filter(|l| l.source.is_file()).and_then(|l| l.vignette) else { return };
     let (w, h) = (sensor.width as f64, sensor.height as f64);
     let (ow, oh) = if orientation.swaps_axes() { (h, w) } else { (w, h) };
     let width = sensor.width.max(1);

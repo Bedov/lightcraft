@@ -2195,6 +2195,38 @@ fn the_colour_look_is_fitted_on_the_vignetting_corrected_sensor() {
     assert!(uncorrected > corrected + 0.03, "without the correction the curve brightens: {uncorrected} vs {corrected}");
 }
 
+/// A lens-database profile is not what the camera applied to its JPEG: this camera JPEG keeps the lens's falloff (as
+/// ILCE-7M4 JPEGs with a Tamron 35-150 mm A058 or a Sigma 20 mm Art nearly do: the camera's own shading correction is
+/// far milder than lensfun's), and a fit on the database-corrected sensor learned a darker curve, which every render
+/// with Enable Profile Corrections off showed. The database profile leaves the fit alone; the file's own correction
+/// still reaches it.
+#[test]
+fn a_lens_database_profile_does_not_reach_the_look_fit() {
+    use lightcraft_develop::{EmbeddedLens, EmbeddedVignette, LensSource};
+    let (w, h) = (192usize, 128usize);
+    let vignette = EmbeddedVignette { k: [1.0, 0.0, 0.0, 0.0, 0.0], center: lightcraft_geom::Point::new(0.5, 0.5), radius: 0.6 };
+    let gain = |x: usize, y: usize| {
+        let point = lightcraft_geom::Point::new(x as f64 + 0.5, y as f64 + 0.5);
+        lightcraft_pipeline::optics::embedded_vignette_gain(&vignette, point, w as f64, h as f64) as f32
+    };
+    let scene = |x: usize, y: usize| 0.01 + 0.5 * (x as f32 / w as f32) * (0.3 + 0.7 * y as f32 / h as f32);
+    // sensor and camera JPEG both show the lens's falloff: the camera corrected nothing
+    let vignetted = |x: usize, y: usize| scene(x, y) / gain(x, y);
+    let (raw, bytes) = grey_raw_with_jpeg((w, h), vignetted, vignetted, [1.0; 3]);
+    let t = lightcraft_raw::color::camera_transform(&raw, lightcraft_raw::color::as_shot_white_xy(&raw));
+    let database = EmbeddedLens { source: LensSource::Database, vignette: Some(vignette), ..Default::default() };
+    let file = EmbeddedLens { source: LensSource::File, vignette: Some(vignette), ..Default::default() };
+    let camera = 1.0 - (-0.75f32).exp();
+    let at_quarter = |embedded: Option<&EmbeddedLens>| {
+        let look = monochrome_look(&raw, &bytes, &t, None, embedded).expect("a tone curve");
+        ToneMap::camera(&look.tone, 0.0, 0.0, 0.0).apply(0.25)
+    };
+    let (plain, from_database, from_file) = (at_quarter(None), at_quarter(Some(&database)), at_quarter(Some(&file)));
+    assert!((plain - camera).abs() < 0.03, "the camera's curve at 0.25: {plain} vs {camera}");
+    assert!((from_database - plain).abs() < 1e-6, "a database profile changed the fit: {from_database} vs {plain}");
+    assert!(from_file < camera - 0.03, "the file's own correction still reaches the fit: {from_file} vs {camera}");
+}
+
 /// A lens-warped sensor proxy gets the vignetting gain of the position it samples, as the render applies it: the
 /// vignetted sensor, corrected, gives the proxy of the same sensor without vignetting.
 #[test]
